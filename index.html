@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claims on a Flat Book Appendix</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Source+Sans+3:wght@400;600;700&display=swap">
+<style>
+/* Layout: one column reading page in the deck's Paper on white style. Single light look by design. */
+:root{ --bg:#ffffff; --surface:#f7f6f3; --ink:#1c1a17; --ink-2:#55514a; --ink-3:#8a847a; --rule:#dedad2; --accent:#b23a1d; --brand:#1c2a3a; --brand-2:#4a6b8a;
+  --display:"Fraunces", Georgia, serif; --body:"Source Sans 3", "Helvetica Neue", Arial, sans-serif; color-scheme:light }
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.5}
+.wrap{max-width:760px;margin-inline:auto;padding-block:40px 64px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.eyebrow{font-size:.78em;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3);font-weight:600}
+h1{font-family:var(--display);font-weight:500;font-size:clamp(30px,5vw,44px);line-height:1.1;margin:.2em 0 .3em;text-wrap:balance}
+.lede{color:var(--ink-2);max-width:62ch;margin:0 0 28px}
+h2{font-family:var(--body);font-size:.95em;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3);margin:32px 0 10px;border-top:1.5px solid var(--rule);padding-top:14px}
+.list{display:grid;gap:10px}
+a.item{display:grid;grid-template-columns:auto 1fr;gap:14px;align-items:start;padding:14px 16px;background:var(--surface);text-decoration:none;color:inherit;border-left:3px solid var(--brand-2)}
+a.item:hover{border-left-color:var(--accent)} a.item:focus-visible{outline:2px solid var(--accent)}
+a.item b.n{font-family:var(--display);font-weight:500;font-size:1.6em;line-height:1;color:var(--brand);min-width:2ch}
+a.item .t{font-weight:600} a.item .s{color:var(--ink-2);font-size:.92em;margin-top:2px}
+a.item.monitor{border-left-color:var(--accent)}
+.nums{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:8px 0 4px}
+@media (max-width:560px){.nums{grid-template-columns:1fr}}
+.nums div{border-top:3px solid var(--accent);padding-top:8px}
+.nums b{display:block;font-family:var(--display);font-weight:500;font-size:2.2em;line-height:1}
+.nums span{font-size:.9em;color:var(--ink-2)}
+.foot{margin-top:36px;font-size:.85em;color:var(--ink-3);border-top:1.5px solid var(--rule);padding-top:12px}
+code{font-family:ui-monospace,Menlo,monospace;font-size:.9em;background:var(--surface);padding:1px 5px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="eyebrow">Business Insight Lead · candidate assessment · supporting analysis</div>
+  <h1>Claims on a Flat Book: the analysis behind the six slides</h1>
+  <p class="lede">Everything on the slides is generated from the code in these notebooks. Nothing in the data was removed silently: every issue is a flag on the row, and every exclusion is measured. All data is the synthetic assessment set; insurers, references and values are fictional.</p>
+
+  <div class="nums">
+    <div><b>24%</b><span>claim frequency in the latest half year, against 9 to 14% for the two years before</span></div>
+    <div><b>50%</b><span>of claims cost from Very High flood risk, on 21% of policies</span></div>
+    <div><b>£3.1m</b><span>of claims to validate: non flood perils and claims with no live cover</span></div>
+  </div>
+
+  <h2>Notebooks, in reading order</h2>
+  <div class="list">
+    <a class="item" href="01_data_quality.html"><b class="n">01</b><div><div class="t">Data quality and preparation</div><div class="s">Eighteen checks, fourteen flagged. Each with row count, pound impact, severity, handling and why. Reconciliation from 6,242 rows to 6,099 policies and 775 claims to 733.</div></div></a>
+    <a class="item" href="02_portfolio.html"><b class="n">02</b><div><div class="t">Portfolio movement and insurer behaviour</div><div class="s">Flat volume, stable mix, rate up 14%. Premium against the market tariff for the same risk. Rivermark, Bluegate and Oak &amp; Stone.</div></div></a>
+    <a class="item" href="03_claims.html"><b class="n">03</b><div><div class="t">Claims experience and leakage</div><div class="s">Exposure based frequency, severity, the spread of claim values, Very High and regional concentration, early term claims on 2026 new business, and the £3.1m.</div></div></a>
+    <a class="item" href="04_story.html"><b class="n">04</b><div><div class="t">The story and what next</div><div class="s">The brief's five questions answered with confidence levels, three prioritised actions with owners, and a 30, 90 and 365 day plan for turning this into a standing capability.</div></div></a>
+  </div>
+
+  <h2>Prototype</h2>
+  <div class="list">
+    <a class="item monitor" href="monitor.html"><b class="n">▶</b><div><div class="t">Flood claims monitor</div><div class="s">A working monitoring page on the same data: monthly frequency against a control limit (it fires in November 2025), the early claim share, the two bordereaux checks by quarter, every insurer on one scale, and the data quality scorecard. It reads monthly totals and the issue log summary, never policy or claim rows.</div></div></a>
+  </div>
+
+  <h2>Method in four lines</h2>
+  <p><b>Frequency</b> is claims notified divided by policies in force at the period midpoint, annualised. <b>Severity</b> is mean incurred per claim, with the median beside it. <b>Cost per policy</b> is incurred divided by policies in force. <b>Loss ratio is not used</b>: incurred is eight times ceded premium by design in a levy funded scheme, so it would say nothing about what changed.</p>
+  <p>One module, <code>src/prep.py</code>, holds every rule. The notebooks import it; the deck reads a JSON the code writes. The slides and the analysis cannot disagree.</p>
+
+  <div class="foot">Synthetic data, April 2023 to September 2026, extract 6 October 2026. Prepared for the Flood Re Business Insight Lead assessment.</div>
+</div>
+</body>
+</html>

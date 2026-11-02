@@ -1,0 +1,750 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Flood Claims Monitor</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600&family=Source+Sans+3:wght@400;600;700&display=swap">
+<style>
+/* Paper on white tokens, standing in for the Dashboard runtime's theme. Single light look, as the deck and appendix. */
+:root{color-scheme:light;
+  --font-anthropic-sans:"Source Sans 3","Helvetica Neue",Arial,sans-serif; --font-anthropic-serif:"Fraunces",Georgia,serif;
+  --color-fg:#1c1a17; --color-fg-muted:#55514a; --color-panel:#f7f6f3; --color-border-line:#dedad2;
+  --color-bad:#b23a1d; --color-warn:#9a6200;
+  --cds-chart-muted:#b4c0cc; --cds-chart-status-critical:#b23a1d; --cds-chart-reference:#1c2a3a; --cds-chart-grid:#e8e5de; --cds-chart-axis:#8a847a;
+  --cds-surface-popover:#ffffff; --cds-border:#dedad2; --cds-shadow-popover:0 4px 14px rgba(28,26,23,.10); --cds-text-secondary:#8a847a;
+  --cds-font-size-title:clamp(28px,4.5vw,40px); --cds-font-size-heading:1.05rem; --cds-font-size-body:1rem; --cds-font-size-caption:.82rem; --cds-font-weight-medium:600;
+  --cds-gap-xs:.25rem; --cds-gap-sm:.5rem; --cds-gap-md:1rem; --cds-gap-lg:1.5rem;
+  --cds-pad-xs:.3rem; --cds-pad-sm:.5rem; --cds-pad-md:.9rem; --cds-pad-lg:1.1rem; --cds-radius:3px; --cds-dur-slow:.3s}
+body{margin:0;background:#ffffff;color:var(--color-fg);font-family:var(--font-anthropic-sans);font-size:17px;line-height:1.45}
+.page{max-width:1120px;margin-inline:auto;padding-block:28px 56px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.back{display:inline-block;font-size:.85em;color:#4a6b8a;text-decoration:none;margin-bottom:14px}
+.back:hover{color:#b23a1d}
+.fm .tip{z-index:2}
+/* layout fixes for a fixed width page: two cards a row; small multiples measured at their final width; labels legible over bars */
+.page .fm .grid{grid-template-columns:repeat(auto-fit,minmax(min(100%,27rem),1fr))}
+.page .fm .multi{grid-template-columns:repeat(auto-fill,minmax(min(100%,9rem),1fr))}
+.page .fm .plot text{paint-order:stroke;stroke:var(--color-panel);stroke-width:3px;stroke-linejoin:round}
+</style>
+</head>
+<body>
+<div class="page">
+<a class="back" href="index.html">‹ Back to the appendix</a>
+<style>
+.fm{font-family:var(--font-anthropic-sans);font-variant-numeric:tabular-nums}
+.fm h1{font-family:var(--font-anthropic-serif);font-weight:400;font-size:var(--cds-font-size-title);margin:0}
+.fm .take{margin:var(--cds-gap-xs) 0 var(--cds-gap-lg);color:var(--color-fg);max-width:70ch}
+.fm .take b{font-weight:600}
+.fm .status{display:flex;gap:var(--cds-gap-sm);align-items:center;padding:var(--cds-pad-sm) var(--cds-pad-md);border:1px solid var(--color-border-line);border-left:4px solid var(--color-bad);border-radius:var(--cds-radius);background:var(--color-panel);margin-bottom:var(--cds-gap-lg);font-size:var(--cds-font-size-body)}
+.fm .status i{width:.6rem;height:.6rem;border-radius:50%;background:var(--color-bad);flex:none}
+.fm .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,11rem),1fr));gap:var(--cds-gap-md);margin-bottom:var(--cds-gap-lg)}
+.fm .tile{background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-md)}
+.fm .tile .l{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.fm .tile .v{font-family:var(--font-anthropic-serif);font-weight:400;font-size:1.9rem;line-height:1.15;margin:.15rem 0}
+.fm .tile .d{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.fm .tile .d b{font-weight:600;color:var(--color-fg)}
+.fm .tile .bad{color:var(--color-bad)}.fm .tile .warn{color:var(--color-warn)}
+.fm .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr));gap:var(--cds-gap-md);margin-bottom:var(--cds-gap-lg)}
+.fm .card{background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-lg);min-width:0}
+.fm .card.wide{grid-column:1/-1}
+.fm h2{font-size:var(--cds-font-size-heading);font-weight:var(--cds-font-weight-medium);margin:0}
+.fm .note{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);margin:.2rem 0 var(--cds-gap-sm)}
+.fm .plot{position:relative;min-height:16rem}
+.fm .plot.sm{min-height:9rem}
+.fm .plot svg{display:block;width:100%;height:auto;overflow:visible}
+.fm .plot text{font-family:var(--font-anthropic-sans);font-size:var(--cds-font-size-caption);fill:var(--color-fg-muted)}
+.fm .tip{position:absolute;pointer-events:none;background:var(--cds-surface-popover);border:1px solid var(--cds-border);border-radius:var(--cds-radius);box-shadow:var(--cds-shadow-popover);padding:var(--cds-pad-xs) var(--cds-pad-sm);font-size:var(--cds-font-size-caption);color:var(--color-fg);white-space:nowrap;z-index:5}
+.fm .tip .k{color:var(--cds-text-secondary)}
+.fm .legend{display:flex;gap:var(--cds-gap-md);flex-wrap:wrap;font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);margin-top:var(--cds-gap-xs)}
+.fm .legend span{display:inline-flex;align-items:center;gap:.35rem}
+.fm .legend i{width:.7rem;height:.7rem;border-radius:2px;display:inline-block}
+.fm .sw-base{background:var(--cds-chart-muted)}.fm .sw-alert{background:var(--cds-chart-status-critical)}.fm .sw-mean{background:var(--cds-chart-reference)}
+.fm table{width:100%;border-collapse:collapse;font-size:var(--cds-font-size-caption)}
+.fm th{text-align:left;color:var(--color-fg-muted);font-weight:var(--cds-font-weight-medium);padding:.35rem .5rem;border-bottom:1px solid var(--color-border-line)}
+.fm td{padding:.4rem .5rem;border-bottom:1px solid var(--color-border-line);vertical-align:top}
+.fm td.n,.fm th.n{text-align:right;white-space:nowrap}
+.fm .sev{display:inline-block;padding:0 .4rem;border-radius:999px;font-size:.72rem;border:1px solid var(--color-border-line)}
+.fm .sev-High{color:var(--color-bad);border-color:var(--color-bad)}.fm .sev-Medium{color:var(--color-warn);border-color:var(--color-warn)}
+.fm .foot{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);max-width:80ch}
+.fm [data-dash-source-state=empty]{color:transparent}
+.fm [data-dash-source-state=refreshing]{opacity:.5;transition:opacity var(--cds-dur-slow)}
+.fm .multi{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,9rem),1fr));gap:var(--cds-gap-sm)}
+.fm .multi .plot{min-height:6.5rem}
+</style>
+
+<div class="fm">
+  <h1>Flood claims monitor</h1>
+  <p class="take">Claim frequency over the last three months is <b data-draw="latest3" data-source="baseline" data-field="latest3">…</b> a year, <b data-draw="ratio" data-source="baseline" data-field="ratio">…</b> times the baseline. An exposure based monitor with a control limit would have raised the alert in <b data-draw="breach" data-source="baseline" data-field="first_breach">…</b> and confirmed it the month after, ten months before this extract. In the last three months <b data-draw="early3" data-source="early_base" data-field="latest3_share">…</b> of claims arrived within 90 days of cover start, against a baseline of <b data-draw="earlyb" data-source="early_base" data-field="baseline_share">…</b>.</p>
+
+  <div class="status"><i></i><span>Alert: frequency has been above the control limit in <b data-draw="above" data-source="baseline" data-field="months_above">…</b> of the last 12 months. The book is flat, so this is claims behaviour, not growth.</span></div>
+
+  <div class="tiles" data-fetchpriority="high">
+    <div class="tile"><div class="l">Frequency, last 3 months</div><div class="v bad" data-draw="t-latest" data-source="baseline" data-field="latest3">…</div><div class="d">Claims notified ÷ policies in force, annualised</div></div>
+    <div class="tile"><div class="l">Baseline, Apr 2024 to Sep 2025</div><div class="v" data-draw="t-mean" data-source="baseline" data-field="mean">…</div><div class="d">Control limit (mean + 2σ) <b data-draw="t-upper" data-source="baseline" data-field="upper">…</b></div></div>
+    <div class="tile"><div class="l">Policies in force, latest month</div><div class="v" data-draw="t-inforce" data-source="baseline" data-field="in_force_latest">…</div><div class="d">Flat for two years</div></div>
+    <div class="tile"><div class="l">Claims to validate since Oct 2025</div><div class="v warn" data-draw="t-leak" data-source="leakage" data-field="since_oct_incurred">…</div><div class="d">Non flood peril or no live cover at notification</div></div>
+    <div class="tile"><div class="l">Open data quality items</div><div class="v" data-draw="t-dq" data-source="dq_summary" data-field="open">…</div><div class="d"><b data-draw="t-dq-high" data-source="dq_summary" data-field="high">…</b> high severity</div></div>
+  </div>
+
+  <div class="grid">
+    <div class="card wide" id="control">
+      <h2>Claim frequency against its control limit</h2>
+      <p class="note">Monthly claims notified per policy in force, annualised. Baseline window Apr 2024 to Sep 2025. Months above the limit in the danger colour. From Oct 2023, when the book reached 800 policies.</p>
+      <div class="plot" data-draw="control" data-source="monthly baseline"></div>
+      <div class="legend"><span><i class="sw-base"></i>Within limit</span><span><i class="sw-alert"></i>Above limit</span><span><i class="sw-mean"></i>Baseline mean and +2σ limit</span></div>
+    </div>
+
+    <div class="card" id="inforce">
+      <h2>Policies in force</h2>
+      <p class="note">The denominator. Flat since mid 2024, so the rise above is not growth.</p>
+      <div class="plot sm" data-draw="inforce" data-source="monthly"></div>
+    </div>
+
+    <div class="card" id="leak">
+      <h2>Claims that two bordereaux checks would have stopped</h2>
+      <p class="note">Per quarter: Escape of water (not a flood peril) and claims notified with no live cover. Both are testable at the point of cession.</p>
+      <div class="plot sm" data-draw="leak" data-source="leak_quarterly"></div>
+      <div class="legend"><span><i style="background:var(--cds-chart-status-critical)"></i>Escape of water</span><span><i class="sw-base"></i>No live cover</span></div>
+    </div>
+
+    <div class="card wide" id="early">
+      <h2>Claims arriving within 90 days of cover start</h2>
+      <p class="note">Share of each month's claims notified within 90 days of the policy's cover start, three month rolling. Claims that arrive right after cession point at cession behaviour rather than weather. Baseline is the same window as the frequency chart.</p>
+      <div class="plot sm" data-draw="early" data-source="monthly early_base"></div>
+      <div class="legend"><span><i class="sw-base"></i>Within baseline</span><span><i class="sw-alert"></i>Above twice the baseline share</span><span><i class="sw-mean"></i>Baseline share</span></div>
+    </div>
+
+    <div class="card wide" id="insurers">
+      <h2>Claims per month by insurer, last 24 months</h2>
+      <p class="note">One shared scale. Seven insurers rise together from November 2025; Beacon Direct does not, which makes it the comparison to start with.</p>
+      <div class="multi" data-draw="insurers" data-source="insurer_monthly"></div>
+    </div>
+
+    <div class="card" id="risk">
+      <h2>Where the cost sits by flood risk band</h2>
+      <p class="note">Share of policies against share of claims cost, whole period.</p>
+      <div class="plot sm" data-draw="risk" data-source="risk_band"></div>
+      <div class="legend"><span><i class="sw-base"></i>Share of policies</span><span><i style="background:var(--cds-chart-reference)"></i>Share of claims cost</span></div>
+    </div>
+
+    <div class="card" id="dq">
+      <h2>Data quality scorecard</h2>
+      <p class="note">Flagged items from the current extract, with the pounds attached. None removed silently.</p>
+      <div style="max-height:18rem;overflow:auto">
+      <table data-source="data_quality" data-row-key="issue">
+        <thead><tr><th data-field="issue">Issue</th><th class="n" data-field="count">Rows</th><th class="n" data-field="gbp">£</th><th data-field="severity">Severity</th></tr></thead>
+        <tbody data-draw="dqrows"></tbody>
+      </table></div>
+    </div>
+  </div>
+
+  <p class="foot">Synthetic assessment data, April 2023 to September 2026, extract 6 October 2026. Frequency uses policies in force at mid month as exposure. The control limit is the baseline mean plus two standard deviations of monthly frequency. In production this page would read the monthly bordereaux feed; the two leakage checks (peril in scope, notification inside live cover) would run at ingestion rather than after the fact.</p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script>
+// Minimal stand in for the Dashboard runtime: named sources, derived calcs, and draw functions bound to [data-draw].
+const dash = (() => {
+  const store = {}, calcs = [], draws = new Map();
+  return {
+    colors: ['#4a6b8a', '#1c2a3a', '#b23a1d'],
+    calc: (id, spec) => calcs.push([id, spec]),
+    data: id => store[id] || { status: 'loading', data: null },
+    draw: (name, fn) => draws.set(name, fn),
+    _boot() {
+      document.querySelectorAll('script[type="text/csv"]').forEach(s => { store[s.id.slice(4)] = { status: 'ok', data: d3.csvParse(s.textContent.trim()) }; });
+      calcs.forEach(([id, s]) => { store[id] = { status: 'ok', data: s.fn(...s.inputs.map(i => store[i].data)) }; });
+      this._render();
+      let t, w = innerWidth; addEventListener('resize', () => { if (innerWidth === w) return; w = innerWidth; clearTimeout(t); t = setTimeout(() => this._render(), 150); });
+    },
+    _render: () => draws.forEach((fn, name) => document.querySelectorAll(`[data-draw="${name}"]`).forEach(el => fn(el)))
+  };
+})();
+</script>
+<script>
+const BASE_START = '2024-04', BASE_END = '2025-09', WATCH_START = '2025-10', SHOW_FROM = '2023-10';
+const pct = d3.format('.0f'), pct1 = d3.format('.1f'), num = d3.format(','), gbpK = v => '£' + d3.format(',.0f')(v / 1000) + 'k';
+const monthLabel = m => { const [y, mo] = m.split('-'); return d3.utcFormat('%b %y')(new Date(Date.UTC(+y, +mo - 1, 1))); };
+const monthName = m => { const [y, mo] = m.split('-'); return d3.utcFormat('%B %Y')(new Date(Date.UTC(+y, +mo - 1, 1))); };
+
+dash.calc('baseline', {
+  title: 'Baseline and control limit',
+  description: 'Mean and standard deviation of monthly annualised frequency over the baseline window, the +2σ limit, the first month above it from October 2025, and the latest three months.',
+  inputs: ['monthly'],
+  fn: (monthly) => {
+    const base = monthly.filter(r => r.month >= '2024-04' && r.month <= '2025-09').map(r => Number(r.freq_annualised));
+    const mean = d3.mean(base), sd = d3.deviation(base), upper = mean + 2 * sd;
+    const watch = monthly.filter(r => r.month >= '2025-10' && r.month <= '2026-09');
+    const above = watch.filter(r => Number(r.freq_annualised) > upper);
+    const last3 = monthly.filter(r => r.month >= '2026-07' && r.month <= '2026-09');
+    const latest3 = d3.sum(last3, r => Number(r.claims)) / d3.mean(last3, r => Number(r.in_force)) * 4 * 100;
+    const latest = monthly.filter(r => r.month === '2026-09')[0];
+    return { mean: Math.round(mean * 10) / 10, sd: Math.round(sd * 10) / 10, upper: Math.round(upper * 10) / 10,
+      first_breach: above.length ? above[0].month : null, months_above: above.length, latest3: Math.round(latest3 * 10) / 10,
+      ratio: Math.round(latest3 / mean * 10) / 10, in_force_latest: Number(latest.in_force) };
+  }
+});
+dash.calc('leakage', {
+  title: 'Claims to validate since Oct 2025',
+  description: 'Incurred on Escape of water claims plus claims with no live cover, notified from October 2025.',
+  inputs: ['monthly'],
+  fn: (monthly) => { const w = monthly.filter(r => r.month >= '2025-10'); return { since_oct_incurred: d3.sum(w, r => Number(r.eow_incurred) + Number(r.invalid_cover_incurred)), since_oct_claims: d3.sum(w, r => Number(r.eow_claims) + Number(r.invalid_cover_claims)) }; }
+});
+dash.calc('leak_quarterly', {
+  title: 'Leakage checks by quarter',
+  description: 'Escape of water claims and no live cover claims summed by calendar quarter.',
+  inputs: ['monthly'],
+  fn: (monthly) => { const q = {}; monthly.forEach(r => { const [y, m] = r.month.split('-'); const k = y + ' Q' + Math.ceil(+m / 3); q[k] = q[k] || { quarter: k, eow: 0, invalid: 0 }; q[k].eow += Number(r.eow_claims); q[k].invalid += Number(r.invalid_cover_claims); }); return Object.values(q); }
+});
+dash.calc('early_base', {
+  title: 'Early claim share baseline',
+  description: 'Mean share of claims notified within 90 days of cover start over the baseline window Apr 2024 to Sep 2025, and the latest three month share.',
+  inputs: ['monthly'],
+  fn: (monthly) => { const base = monthly.filter(r => r.month >= '2024-04' && r.month <= '2025-09'); const share = d3.sum(base, r => Number(r.early_claims)) / d3.sum(base, r => Number(r.claims)) * 100;
+    const last3 = monthly.filter(r => r.month >= '2026-07' && r.month <= '2026-09'); return { baseline_share: Math.round(share * 10) / 10, latest3_share: Math.round(d3.sum(last3, r => Number(r.early_claims)) / d3.sum(last3, r => Number(r.claims)) * 1000) / 10 }; }
+});
+dash.calc('dq_summary', {
+  title: 'Data quality summary',
+  description: 'Count of flagged items and of high severity items.',
+  inputs: ['data_quality'],
+  fn: (data_quality) => ({ open: data_quality.length, high: data_quality.filter(r => r.severity === 'High').length, gbp: d3.sum(data_quality, r => Number(r.gbp)) })
+});
+
+const ok = id => dash.data(id).status === 'ok';
+const val = (id, f) => ok(id) ? dash.data(id).data[f] : null;
+const txt = (name, f) => dash.draw(name, el => { const v = f(); el.textContent = v == null ? '…' : v; });
+txt('latest3', () => { const v = val('baseline', 'latest3'); return v == null ? null : pct(v) + '%'; });
+txt('t-latest', () => { const v = val('baseline', 'latest3'); return v == null ? null : pct(v) + '%'; });
+txt('ratio', () => val('baseline', 'ratio'));
+txt('breach', () => { const v = val('baseline', 'first_breach'); return v ? monthName(v) : null; });
+txt('above', () => val('baseline', 'months_above'));
+txt('t-mean', () => { const v = val('baseline', 'mean'); return v == null ? null : pct(v) + '%'; });
+txt('t-upper', () => { const v = val('baseline', 'upper'); return v == null ? null : pct1(v) + '%'; });
+txt('t-inforce', () => { const v = val('baseline', 'in_force_latest'); return v == null ? null : num(v); });
+txt('t-leak', () => { const v = val('leakage', 'since_oct_incurred'); return v == null ? null : '£' + d3.format('.1f')(v / 1e6) + 'm'; });
+txt('t-dq', () => val('dq_summary', 'open'));
+txt('early3', () => { const v = val('early_base', 'latest3_share'); return v == null ? null : pct(v) + '%'; });
+txt('earlyb', () => { const v = val('early_base', 'baseline_share'); return v == null ? null : pct(v) + '%'; });
+txt('t-dq-high', () => val('dq_summary', 'high'));
+
+function tipOn(box) { let t = box.querySelector('.tip'); if (!t) { t = document.createElement('div'); t.className = 'tip'; t.hidden = true; box.appendChild(t); } return t; }
+function place(t, box, ev) { const r = box.getBoundingClientRect(); let x = ev.clientX - r.left + 12, y = ev.clientY - r.top + 12; if (x + t.offsetWidth > r.width) x = Math.max(0, ev.clientX - r.left - t.offsetWidth - 12); t.style.left = x + 'px'; t.style.top = y + 'px'; }
+function measure(svg, labels) { const t = svg.append('text').attr('opacity', 0); let w = 0; labels.forEach(l => { t.text(l); w = Math.max(w, t.node().getComputedTextLength()); }); t.remove(); return w; }
+function frame(el, h) { el.replaceChildren(); const w = el.clientWidth || 600; const svg = d3.select(el).append('svg').attr('width', '100%').attr('viewBox', `0 0 ${w} ${h}`); return { svg, w, h }; }
+
+dash.draw('control', el => {
+  const m = dash.data('monthly'), b = dash.data('baseline'); if (m.status !== 'ok' || b.status !== 'ok') { el.replaceChildren(); return; }
+  const rows = m.data.filter(r => r.month >= SHOW_FROM).map(r => ({ month: r.month, f: Number(r.freq_annualised), claims: Number(r.claims), inf: Number(r.in_force) }));
+  const B = b.data; const { svg, w, h } = frame(el, 260); const tip = tipOn(el);
+  const yMax = Math.ceil(d3.max(rows, r => r.f) / 10) * 10; const yTicks = d3.range(0, yMax + 1, 10);
+  const ml = measure(svg, yTicks.map(v => v + '%')) + 10, mr = 8, mt = 18, mb = 26;
+  const x = d3.scaleBand(rows.map(r => r.month), [ml, w - mr]).paddingInner(0.25); const y = d3.scaleLinear([0, yMax], [h - mb, mt]);
+  svg.append('g').selectAll('line').data(yTicks).join('line').attr('x1', ml).attr('x2', w - mr).attr('y1', y).attr('y2', y).attr('stroke', 'var(--cds-chart-grid)');
+  svg.append('g').selectAll('text').data(yTicks).join('text').attr('x', ml - 6).attr('y', d => y(d) + 4).attr('text-anchor', 'end').text(d => d + '%');
+  const inBase = r => r.month >= BASE_START && r.month <= BASE_END; const alert = r => r.month >= WATCH_START && r.f > B.upper;
+  svg.append('rect').attr('x', x(BASE_START)).attr('y', mt).attr('width', x(BASE_END) + x.bandwidth() - x(BASE_START)).attr('height', h - mb - mt).attr('fill', 'var(--cds-chart-grid)').attr('opacity', .35);
+  svg.append('text').attr('x', x(BASE_START) + 4).attr('y', mt + 12).text('baseline window');
+  const bars = svg.append('g').selectAll('rect').data(rows).join('rect').attr('x', d => x(d.month)).attr('y', d => y(d.f)).attr('width', x.bandwidth()).attr('height', d => y(0) - y(d.f)).attr('rx', 2)
+    .attr('fill', d => alert(d) ? 'var(--cds-chart-status-critical)' : 'var(--cds-chart-muted)');
+  svg.append('line').attr('x1', ml).attr('x2', w - mr).attr('y1', y(B.mean)).attr('y2', y(B.mean)).attr('stroke', 'var(--cds-chart-reference)').attr('stroke-width', 1.5);
+  svg.append('line').attr('x1', ml).attr('x2', w - mr).attr('y1', y(B.upper)).attr('y2', y(B.upper)).attr('stroke', 'var(--cds-chart-reference)').attr('stroke-width', 1.5).attr('stroke-dasharray', '5 4');
+  svg.append('text').attr('x', w - mr).attr('y', y(B.upper) - 4).attr('text-anchor', 'end').text('limit ' + pct1(B.upper) + '%');
+  svg.append('text').attr('x', w - mr).attr('y', y(B.mean) + 12).attr('text-anchor', 'end').text('mean ' + pct1(B.mean) + '%');
+  if (B.first_breach && x(B.first_breach) != null) { const fx = x(B.first_breach) + x.bandwidth() / 2, fr = rows.find(r => r.month === B.first_breach); svg.append('line').attr('x1', fx).attr('x2', fx).attr('y1', y(fr.f) - 4).attr('y2', mt + 4).attr('stroke', 'var(--cds-chart-status-critical)'); svg.append('text').attr('x', fx - 6).attr('y', mt + 12).attr('text-anchor', 'end').attr('fill', 'var(--cds-chart-status-critical)').text('alert · ' + monthLabel(B.first_breach)); }
+  const every = w < 560 ? 6 : 3; svg.append('g').selectAll('text').data(rows.filter((r, i) => i % every === 0)).join('text').attr('x', d => x(d.month) + x.bandwidth() / 2).attr('y', h - 8).attr('text-anchor', 'middle').text(d => monthLabel(d.month));
+  bars.on('mousemove', (ev, d) => { tip.hidden = false; tip.innerHTML = `<div class="k">${monthName(d.month)}</div><div>${pct1(d.f)}% annualised</div><div class="k">${d.claims} claims · ${num(d.inf)} in force</div>`; place(tip, el, ev); }).on('mouseleave', () => tip.hidden = true);
+});
+
+dash.draw('inforce', el => {
+  const m = dash.data('monthly'); if (m.status !== 'ok') { el.replaceChildren(); return; }
+  const rows = m.data.filter(r => r.month >= SHOW_FROM).map(r => ({ month: r.month, v: Number(r.in_force) }));
+  const { svg, w, h } = frame(el, 140); const tip = tipOn(el); const ml = measure(svg, ['2,000']) + 10, mr = 8, mt = 10, mb = 24;
+  const x = d3.scalePoint(rows.map(r => r.month), [ml, w - mr]); const y = d3.scaleLinear([0, 2000], [h - mb, mt]);
+  [0, 1000, 2000].forEach(v => { svg.append('line').attr('x1', ml).attr('x2', w - mr).attr('y1', y(v)).attr('y2', y(v)).attr('stroke', 'var(--cds-chart-grid)'); svg.append('text').attr('x', ml - 6).attr('y', y(v) + 4).attr('text-anchor', 'end').text(num(v)); });
+  svg.append('path').attr('d', d3.line().x(d => x(d.month)).y(d => y(d.v))(rows)).attr('fill', 'none').attr('stroke', dash.colors[0]).attr('stroke-width', 2).attr('stroke-linejoin', 'round').attr('stroke-linecap', 'round');
+  const last = rows[rows.length - 1]; svg.append('circle').attr('cx', x(last.month)).attr('cy', y(last.v)).attr('r', 3.5).attr('fill', dash.colors[0]); svg.append('text').attr('x', x(last.month) - 6).attr('y', y(last.v) - 8).attr('text-anchor', 'end').text(num(last.v) + ' in force');
+  const every = w < 400 ? 12 : 6; svg.append('g').selectAll('text').data(rows.filter((r, i) => i % every === 0)).join('text').attr('x', d => x(d.month)).attr('y', h - 6).attr('text-anchor', 'middle').text(d => monthLabel(d.month));
+  svg.append('rect').attr('x', ml).attr('y', mt).attr('width', w - ml - mr).attr('height', h - mt - mb).attr('fill', 'transparent').on('mousemove', ev => { const px = d3.pointer(ev)[0]; const i = Math.round((px - ml) / (w - ml - mr) * (rows.length - 1)); const d = rows[Math.max(0, Math.min(rows.length - 1, i))]; tip.hidden = false; tip.innerHTML = `<div class="k">${monthName(d.month)}</div><div>${num(d.v)} policies in force</div>`; place(tip, el, ev); }).on('mouseleave', () => tip.hidden = true);
+});
+
+dash.draw('leak', el => {
+  const q = dash.data('leak_quarterly'); if (q.status !== 'ok') { el.replaceChildren(); return; }
+  const rows = q.data.filter(r => r.quarter >= '2023 Q4'); const { svg, w, h } = frame(el, 150); const tip = tipOn(el);
+  const yMax = Math.ceil(d3.max(rows, r => r.eow + r.invalid) / 5) * 5; const ml = measure(svg, [String(yMax)]) + 10, mr = 8, mt = 10, mb = 24;
+  const x = d3.scaleBand(rows.map(r => r.quarter), [ml, w - mr]).paddingInner(0.3); const y = d3.scaleLinear([0, yMax], [h - mb, mt]);
+  d3.range(0, yMax + 1, 5).forEach(v => { svg.append('line').attr('x1', ml).attr('x2', w - mr).attr('y1', y(v)).attr('y2', y(v)).attr('stroke', 'var(--cds-chart-grid)'); svg.append('text').attr('x', ml - 6).attr('y', y(v) + 4).attr('text-anchor', 'end').text(v); });
+  const g = svg.append('g').selectAll('g').data(rows).join('g');
+  g.append('rect').attr('x', d => x(d.quarter)).attr('y', d => y(d.eow)).attr('width', x.bandwidth()).attr('height', d => y(0) - y(d.eow)).attr('fill', 'var(--cds-chart-status-critical)').attr('rx', 2);
+  g.append('rect').attr('x', d => x(d.quarter)).attr('y', d => y(d.eow + d.invalid) + 1).attr('width', x.bandwidth()).attr('height', d => Math.max(0, y(d.eow) - y(d.eow + d.invalid) - 1)).attr('fill', 'var(--cds-chart-muted)').attr('rx', 2);
+  const every = w < 420 ? 4 : 2; svg.append('g').selectAll('text').data(rows.filter((r, i) => i % every === 0)).join('text').attr('x', d => x(d.quarter) + x.bandwidth() / 2).attr('y', h - 6).attr('text-anchor', 'middle').text(d => d.quarter);
+  g.on('mousemove', (ev, d) => { tip.hidden = false; tip.innerHTML = `<div class="k">${d.quarter}</div><div>${d.eow} escape of water</div><div>${d.invalid} no live cover</div>`; place(tip, el, ev); }).on('mouseleave', () => tip.hidden = true);
+});
+
+dash.draw('early', el => {
+  const m = dash.data('monthly'), b = dash.data('early_base'); if (m.status !== 'ok' || b.status !== 'ok') { el.replaceChildren(); return; }
+  const all = m.data.filter(r => r.month >= '2023-08').map(r => ({ month: r.month, c: Number(r.claims), e: Number(r.early_claims) }));
+  const rows = all.map((r, i) => { const w = all.slice(Math.max(0, i - 2), i + 1); const c = d3.sum(w, x => x.c), e = d3.sum(w, x => x.e); return { month: r.month, share: c ? e / c * 100 : 0, c, e }; }).filter(r => r.month >= SHOW_FROM);
+  const B = b.data; const { svg, w, h } = frame(el, 170); const tip = tipOn(el); const yMax = 80; const yTicks = [0, 20, 40, 60, 80];
+  const ml = measure(svg, ['80%']) + 10, mr = 8, mt = 14, mb = 24;
+  const x = d3.scaleBand(rows.map(r => r.month), [ml, w - mr]).paddingInner(0.25); const y = d3.scaleLinear([0, yMax], [h - mb, mt]);
+  svg.append('g').selectAll('line').data(yTicks).join('line').attr('x1', ml).attr('x2', w - mr).attr('y1', y).attr('y2', y).attr('stroke', 'var(--cds-chart-grid)');
+  svg.append('g').selectAll('text').data(yTicks).join('text').attr('x', ml - 6).attr('y', d => y(d) + 4).attr('text-anchor', 'end').text(d => d + '%');
+  const bars = svg.append('g').selectAll('rect').data(rows).join('rect').attr('x', d => x(d.month)).attr('y', d => y(d.share)).attr('width', x.bandwidth()).attr('height', d => y(0) - y(d.share)).attr('rx', 2)
+    .attr('fill', d => (d.month >= WATCH_START && d.share > 2 * B.baseline_share) ? 'var(--cds-chart-status-critical)' : 'var(--cds-chart-muted)');
+  svg.append('line').attr('x1', ml).attr('x2', w - mr).attr('y1', y(B.baseline_share)).attr('y2', y(B.baseline_share)).attr('stroke', 'var(--cds-chart-reference)').attr('stroke-width', 1.5);
+  svg.append('text').attr('x', w - mr).attr('y', y(B.baseline_share) - 4).attr('text-anchor', 'end').text('baseline ' + pct(B.baseline_share) + '%');
+  const every = w < 560 ? 6 : 3; svg.append('g').selectAll('text').data(rows.filter((r, i) => i % every === 0)).join('text').attr('x', d => x(d.month) + x.bandwidth() / 2).attr('y', h - 8).attr('text-anchor', 'middle').text(d => monthLabel(d.month));
+  bars.on('mousemove', (ev, d) => { tip.hidden = false; tip.innerHTML = `<div class="k">3 months to ${monthName(d.month)}</div><div>${pct(d.share)}% within 90 days of cover start</div><div class="k">${d.e} of ${d.c} claims</div>`; place(tip, el, ev); }).on('mouseleave', () => tip.hidden = true);
+});
+
+dash.draw('insurers', el => {
+  const m = dash.data('insurer_monthly'); if (m.status !== 'ok') { el.replaceChildren(); return; }
+  const rows = m.data.filter(r => r.month >= '2024-10').map(r => ({ insurer: r.insurer, month: r.month, v: Number(r.claims) }));
+  const by = d3.group(rows, r => r.insurer); const yMax = Math.ceil(d3.max(rows, r => r.v) / 5) * 5; el.replaceChildren();
+  for (const [name, rs] of by) {
+    const box = document.createElement('div'); box.className = 'plot'; el.appendChild(box);
+    const { svg, w, h } = frame(box, 100); const tip = tipOn(box); const ml = 4, mr = 4, mt = 16, mb = 4;
+    const x = d3.scaleBand(rs.map(r => r.month), [ml, w - mr]).paddingInner(0.2); const y = d3.scaleLinear([0, yMax], [h - mb, mt]);
+    svg.append('line').attr('x1', ml).attr('x2', w - mr).attr('y1', y(0)).attr('y2', y(0)).attr('stroke', 'var(--cds-chart-axis)');
+    svg.append('text').attr('x', ml).attr('y', 11).attr('fill', 'var(--color-fg)').text(name);
+    svg.append('g').selectAll('rect').data(rs).join('rect').attr('x', d => x(d.month)).attr('y', d => y(d.v)).attr('width', x.bandwidth()).attr('height', d => y(0) - y(d.v)).attr('rx', 1)
+      .attr('fill', d => d.month >= WATCH_START ? dash.colors[0] : 'var(--cds-chart-muted)')
+      .on('mousemove', (ev, d) => { tip.hidden = false; tip.innerHTML = `<div class="k">${name} · ${monthName(d.month)}</div><div>${d.v} claims</div>`; place(tip, box, ev); }).on('mouseleave', () => tip.hidden = true);
+  }
+});
+
+dash.draw('risk', el => {
+  const r = dash.data('risk_band'); if (r.status !== 'ok') { el.replaceChildren(); return; }
+  const rows = r.data.map(d => ({ band: d.band, p: Number(d.policy_share_pct), c: Number(d.incurred_share_pct) })); const { svg, w, h } = frame(el, 150); const tip = tipOn(el);
+  const ml = measure(svg, ['Very High']) + 10, mr = 44, rh = (h - 8) / rows.length; const x = d3.scaleLinear([0, 60], [ml, w - mr]);
+  const g = svg.append('g').selectAll('g').data(rows).join('g').attr('transform', (d, i) => `translate(0,${4 + i * rh})`);
+  g.append('text').attr('x', ml - 8).attr('y', rh / 2 + 4).attr('text-anchor', 'end').attr('fill', 'var(--color-fg)').text(d => d.band);
+  g.append('rect').attr('x', ml).attr('y', 3).attr('height', rh / 2 - 4).attr('width', d => x(d.p) - ml).attr('fill', 'var(--cds-chart-muted)').attr('rx', 2);
+  g.append('rect').attr('x', ml).attr('y', rh / 2 + 1).attr('height', rh / 2 - 4).attr('width', d => x(d.c) - ml).attr('fill', 'var(--cds-chart-reference)').attr('rx', 2);
+  g.append('text').attr('x', d => x(d.c) + 5).attr('y', rh / 2 + 1 + (rh / 2 - 4) / 2 + 4).text(d => pct(d.c) + '% of cost');
+  g.on('mousemove', (ev, d) => { tip.hidden = false; tip.innerHTML = `<div class="k">${d.band} risk</div><div>${pct(d.p)}% of policies</div><div>${pct(d.c)}% of claims cost</div>`; place(tip, el, ev); }).on('mouseleave', () => tip.hidden = true);
+});
+
+dash.draw('dqrows', tb => {
+  const q = dash.data('data_quality'); tb.replaceChildren(); if (q.status !== 'ok') return;
+  const order = { High: 0, Medium: 1, Low: 2, Info: 3 };
+  [...q.data].sort((a, b) => (order[a.severity] ?? 9) - (order[b.severity] ?? 9) || Number(b.gbp) - Number(a.gbp)).forEach(r => {
+    const tr = document.createElement('tr'); tr.dataset.key = r.issue;
+    const c = (t, cls) => { const td = document.createElement('td'); if (cls) td.className = cls; td.textContent = t; tr.appendChild(td); };
+    c(r.issue); c(num(Number(r.count)), 'n'); c(gbpK(Number(r.gbp)), 'n');
+    const td = document.createElement('td'); const s = document.createElement('span'); s.className = 'sev sev-' + r.severity; s.textContent = r.severity; td.appendChild(s); tr.appendChild(td); tb.appendChild(tr);
+  });
+});
+</script>
+</div>
+<script type="text/csv" id="csv-monthly">
+month,claims,in_force,freq_annualised,incurred,eow_claims,invalid_cover_claims,eow_incurred,invalid_cover_incurred,early_claims,early_share_pct
+2023-04,0,19,0.0,0,0,0,0,0,0,0.0
+2023-05,0,135,0.0,0,0,0,0,0,0,0.0
+2023-06,2,273,8.79,41125,0,1,0,24017,2,100.0
+2023-07,7,419,20.05,115216,2,1,42936,19238,6,85.7
+2023-08,8,578,16.61,217452,2,1,35262,41762,7,87.5
+2023-09,6,697,10.33,67830,0,1,0,13103,4,66.7
+2023-10,8,842,11.4,155760,1,0,13293,0,5,62.5
+2023-11,6,982,7.33,263621,0,1,0,6735,3,50.0
+2023-12,15,1138,15.82,386104,1,1,83302,22307,6,40.0
+2024-01,21,1257,20.05,441771,3,0,24387,0,9,42.9
+2024-02,6,1389,5.18,219861,0,0,0,0,2,33.3
+2024-03,19,1526,14.94,380825,2,0,39005,0,1,5.3
+2024-04,21,1647,15.3,537760,3,0,90049,0,7,33.3
+2024-05,22,1664,15.87,609261,2,3,220875,59426,7,31.8
+2024-06,20,1687,14.23,464040,4,0,205464,0,5,25.0
+2024-07,16,1694,11.33,368988,3,0,72416,0,3,18.8
+2024-08,19,1691,13.48,450135,2,1,28816,1915,5,26.3
+2024-09,18,1699,12.71,481504,4,4,65327,34705,7,38.9
+2024-10,19,1682,13.56,490472,1,0,6687,0,5,26.3
+2024-11,14,1672,10.05,232396,4,2,47593,50584,1,7.1
+2024-12,15,1665,10.81,366732,1,0,2929,0,8,53.3
+2025-01,14,1692,9.93,254806,2,0,31551,0,2,14.3
+2025-02,10,1704,7.04,263147,2,1,47998,15649,3,30.0
+2025-03,20,1719,13.96,445500,2,0,11608,0,5,25.0
+2025-04,15,1709,10.53,421821,0,1,0,23427,5,33.3
+2025-05,15,1678,10.73,359949,1,2,32473,16430,7,46.7
+2025-06,12,1678,8.58,293946,2,2,95431,14461,2,16.7
+2025-07,13,1700,9.18,383360,4,0,111460,0,8,61.5
+2025-08,14,1695,9.91,230611,1,0,25440,0,5,35.7
+2025-09,12,1691,8.52,361622,2,3,48988,45600,2,16.7
+2025-10,10,1701,7.05,199917,0,1,0,34925,3,30.0
+2025-11,36,1692,25.53,832773,10,2,164729,41818,1,2.8
+2025-12,29,1695,20.53,547038,2,0,35374,0,8,27.6
+2026-01,25,1671,17.95,610180,3,2,56587,48313,12,48.0
+2026-02,16,1651,11.63,330138,0,5,0,93706,7,43.8
+2026-03,16,1644,11.68,319219,2,2,32785,59175,3,18.8
+2026-04,32,1676,22.91,743018,3,1,20770,65082,11,34.4
+2026-05,15,1709,10.53,285020,3,0,58860,0,4,26.7
+2026-06,24,1670,17.25,563302,5,1,105388,5519,12,50.0
+2026-07,33,1645,24.07,807612,3,0,54794,0,15,45.5
+2026-08,33,1649,24.01,850984,7,1,196270,7476,12,36.4
+2026-09,60,1667,43.19,1371613,9,0,179468,0,38,63.3
+</script>
+<script type="text/csv" id="csv-insurer_monthly">
+insurer,code,month,claims,in_force,freq_annualised
+Harbour Home Insurance,INS001,2023-04,0,3,0.0
+Harbour Home Insurance,INS001,2023-05,0,21,0.0
+Harbour Home Insurance,INS001,2023-06,1,46,26.09
+Harbour Home Insurance,INS001,2023-07,2,78,30.77
+Harbour Home Insurance,INS001,2023-08,4,101,47.52
+Harbour Home Insurance,INS001,2023-09,0,123,0.0
+Harbour Home Insurance,INS001,2023-10,2,147,16.33
+Harbour Home Insurance,INS001,2023-11,1,169,7.1
+Harbour Home Insurance,INS001,2023-12,1,195,6.15
+Harbour Home Insurance,INS001,2024-01,5,218,27.52
+Harbour Home Insurance,INS001,2024-02,1,239,5.02
+Harbour Home Insurance,INS001,2024-03,4,260,18.46
+Harbour Home Insurance,INS001,2024-04,1,281,4.27
+Harbour Home Insurance,INS001,2024-05,4,291,16.49
+Harbour Home Insurance,INS001,2024-06,4,292,16.44
+Harbour Home Insurance,INS001,2024-07,4,293,16.38
+Harbour Home Insurance,INS001,2024-08,3,301,11.96
+Harbour Home Insurance,INS001,2024-09,2,304,7.89
+Harbour Home Insurance,INS001,2024-10,5,307,19.54
+Harbour Home Insurance,INS001,2024-11,3,303,11.88
+Harbour Home Insurance,INS001,2024-12,0,299,0.0
+Harbour Home Insurance,INS001,2025-01,3,296,12.16
+Harbour Home Insurance,INS001,2025-02,3,299,12.04
+Harbour Home Insurance,INS001,2025-03,3,312,11.54
+Harbour Home Insurance,INS001,2025-04,2,309,7.77
+Harbour Home Insurance,INS001,2025-05,4,302,15.89
+Harbour Home Insurance,INS001,2025-06,1,305,3.93
+Harbour Home Insurance,INS001,2025-07,2,305,7.87
+Harbour Home Insurance,INS001,2025-08,4,294,16.33
+Harbour Home Insurance,INS001,2025-09,1,288,4.17
+Harbour Home Insurance,INS001,2025-10,1,297,4.04
+Harbour Home Insurance,INS001,2025-11,12,300,48.0
+Harbour Home Insurance,INS001,2025-12,5,309,19.42
+Harbour Home Insurance,INS001,2026-01,5,310,19.35
+Harbour Home Insurance,INS001,2026-02,3,296,12.16
+Harbour Home Insurance,INS001,2026-03,3,300,12.0
+Harbour Home Insurance,INS001,2026-04,8,308,31.17
+Harbour Home Insurance,INS001,2026-05,3,325,11.08
+Harbour Home Insurance,INS001,2026-06,4,318,15.09
+Harbour Home Insurance,INS001,2026-07,8,314,30.57
+Harbour Home Insurance,INS001,2026-08,6,324,22.22
+Harbour Home Insurance,INS001,2026-09,8,329,29.18
+Oak & Stone Mutual,INS002,2023-04,0,3,0.0
+Oak & Stone Mutual,INS002,2023-05,0,19,0.0
+Oak & Stone Mutual,INS002,2023-06,0,47,0.0
+Oak & Stone Mutual,INS002,2023-07,2,76,31.58
+Oak & Stone Mutual,INS002,2023-08,0,104,0.0
+Oak & Stone Mutual,INS002,2023-09,3,125,28.8
+Oak & Stone Mutual,INS002,2023-10,4,146,32.88
+Oak & Stone Mutual,INS002,2023-11,1,178,6.74
+Oak & Stone Mutual,INS002,2023-12,2,208,11.54
+Oak & Stone Mutual,INS002,2024-01,8,227,42.29
+Oak & Stone Mutual,INS002,2024-02,2,239,10.04
+Oak & Stone Mutual,INS002,2024-03,3,261,13.79
+Oak & Stone Mutual,INS002,2024-04,3,274,13.14
+Oak & Stone Mutual,INS002,2024-05,3,285,12.63
+Oak & Stone Mutual,INS002,2024-06,2,287,8.36
+Oak & Stone Mutual,INS002,2024-07,1,282,4.26
+Oak & Stone Mutual,INS002,2024-08,3,280,12.86
+Oak & Stone Mutual,INS002,2024-09,3,276,13.04
+Oak & Stone Mutual,INS002,2024-10,3,276,13.04
+Oak & Stone Mutual,INS002,2024-11,2,267,8.99
+Oak & Stone Mutual,INS002,2024-12,4,260,18.46
+Oak & Stone Mutual,INS002,2025-01,2,256,9.38
+Oak & Stone Mutual,INS002,2025-02,1,267,4.49
+Oak & Stone Mutual,INS002,2025-03,0,267,0.0
+Oak & Stone Mutual,INS002,2025-04,2,272,8.82
+Oak & Stone Mutual,INS002,2025-05,2,260,9.23
+Oak & Stone Mutual,INS002,2025-06,2,264,9.09
+Oak & Stone Mutual,INS002,2025-07,3,274,13.14
+Oak & Stone Mutual,INS002,2025-08,2,286,8.39
+Oak & Stone Mutual,INS002,2025-09,3,293,12.29
+Oak & Stone Mutual,INS002,2025-10,5,295,20.34
+Oak & Stone Mutual,INS002,2025-11,4,292,16.44
+Oak & Stone Mutual,INS002,2025-12,10,297,40.4
+Oak & Stone Mutual,INS002,2026-01,5,298,20.13
+Oak & Stone Mutual,INS002,2026-02,4,290,16.55
+Oak & Stone Mutual,INS002,2026-03,5,287,20.91
+Oak & Stone Mutual,INS002,2026-04,9,298,36.24
+Oak & Stone Mutual,INS002,2026-05,0,298,0.0
+Oak & Stone Mutual,INS002,2026-06,7,287,29.27
+Oak & Stone Mutual,INS002,2026-07,5,273,21.98
+Oak & Stone Mutual,INS002,2026-08,1,259,4.63
+Oak & Stone Mutual,INS002,2026-09,10,267,44.94
+Northstar Household,INS003,2023-04,0,3,0.0
+Northstar Household,INS003,2023-05,0,17,0.0
+Northstar Household,INS003,2023-06,0,33,0.0
+Northstar Household,INS003,2023-07,2,53,45.28
+Northstar Household,INS003,2023-08,0,75,0.0
+Northstar Household,INS003,2023-09,0,91,0.0
+Northstar Household,INS003,2023-10,0,113,0.0
+Northstar Household,INS003,2023-11,2,129,18.6
+Northstar Household,INS003,2023-12,6,147,48.98
+Northstar Household,INS003,2024-01,3,165,21.82
+Northstar Household,INS003,2024-02,0,188,0.0
+Northstar Household,INS003,2024-03,4,206,23.3
+Northstar Household,INS003,2024-04,1,221,5.43
+Northstar Household,INS003,2024-05,4,224,21.43
+Northstar Household,INS003,2024-06,3,227,15.86
+Northstar Household,INS003,2024-07,4,229,20.96
+Northstar Household,INS003,2024-08,4,225,21.33
+Northstar Household,INS003,2024-09,2,224,10.71
+Northstar Household,INS003,2024-10,3,215,16.74
+Northstar Household,INS003,2024-11,0,211,0.0
+Northstar Household,INS003,2024-12,3,221,16.29
+Northstar Household,INS003,2025-01,3,233,15.45
+Northstar Household,INS003,2025-02,1,231,5.19
+Northstar Household,INS003,2025-03,4,232,20.69
+Northstar Household,INS003,2025-04,2,231,10.39
+Northstar Household,INS003,2025-05,2,228,10.53
+Northstar Household,INS003,2025-06,1,223,5.38
+Northstar Household,INS003,2025-07,2,229,10.48
+Northstar Household,INS003,2025-08,1,234,5.13
+Northstar Household,INS003,2025-09,2,232,10.34
+Northstar Household,INS003,2025-10,1,236,5.08
+Northstar Household,INS003,2025-11,6,240,30.0
+Northstar Household,INS003,2025-12,1,240,5.0
+Northstar Household,INS003,2026-01,1,227,5.29
+Northstar Household,INS003,2026-02,0,231,0.0
+Northstar Household,INS003,2026-03,4,228,21.05
+Northstar Household,INS003,2026-04,5,230,26.09
+Northstar Household,INS003,2026-05,3,236,15.25
+Northstar Household,INS003,2026-06,2,235,10.21
+Northstar Household,INS003,2026-07,6,235,30.64
+Northstar Household,INS003,2026-08,5,246,24.39
+Northstar Household,INS003,2026-09,8,245,39.18
+Elmbridge General,INS004,2023-04,0,2,0.0
+Elmbridge General,INS004,2023-05,0,26,0.0
+Elmbridge General,INS004,2023-06,0,39,0.0
+Elmbridge General,INS004,2023-07,0,54,0.0
+Elmbridge General,INS004,2023-08,2,78,30.77
+Elmbridge General,INS004,2023-09,2,92,26.09
+Elmbridge General,INS004,2023-10,1,113,10.62
+Elmbridge General,INS004,2023-11,0,139,0.0
+Elmbridge General,INS004,2023-12,1,157,7.64
+Elmbridge General,INS004,2024-01,2,174,13.79
+Elmbridge General,INS004,2024-02,1,187,6.42
+Elmbridge General,INS004,2024-03,4,204,23.53
+Elmbridge General,INS004,2024-04,2,222,10.81
+Elmbridge General,INS004,2024-05,3,210,17.14
+Elmbridge General,INS004,2024-06,3,218,16.51
+Elmbridge General,INS004,2024-07,1,218,5.5
+Elmbridge General,INS004,2024-08,3,207,17.39
+Elmbridge General,INS004,2024-09,3,205,17.56
+Elmbridge General,INS004,2024-10,2,202,11.88
+Elmbridge General,INS004,2024-11,4,203,23.65
+Elmbridge General,INS004,2024-12,3,201,17.91
+Elmbridge General,INS004,2025-01,2,205,11.71
+Elmbridge General,INS004,2025-02,2,205,11.71
+Elmbridge General,INS004,2025-03,5,211,28.44
+Elmbridge General,INS004,2025-04,0,204,0.0
+Elmbridge General,INS004,2025-05,1,207,5.8
+Elmbridge General,INS004,2025-06,3,203,17.73
+Elmbridge General,INS004,2025-07,1,204,5.88
+Elmbridge General,INS004,2025-08,0,204,0.0
+Elmbridge General,INS004,2025-09,1,208,5.77
+Elmbridge General,INS004,2025-10,3,204,17.65
+Elmbridge General,INS004,2025-11,2,201,11.94
+Elmbridge General,INS004,2025-12,3,202,17.82
+Elmbridge General,INS004,2026-01,3,198,18.18
+Elmbridge General,INS004,2026-02,0,198,0.0
+Elmbridge General,INS004,2026-03,0,194,0.0
+Elmbridge General,INS004,2026-04,4,199,24.12
+Elmbridge General,INS004,2026-05,1,201,5.97
+Elmbridge General,INS004,2026-06,6,194,37.11
+Elmbridge General,INS004,2026-07,5,207,28.99
+Elmbridge General,INS004,2026-08,7,211,39.81
+Elmbridge General,INS004,2026-09,11,214,61.68
+Beacon Direct,INS005,2023-04,0,0,
+Beacon Direct,INS005,2023-05,0,13,0.0
+Beacon Direct,INS005,2023-06,1,32,37.5
+Beacon Direct,INS005,2023-07,0,51,0.0
+Beacon Direct,INS005,2023-08,1,71,16.9
+Beacon Direct,INS005,2023-09,1,88,13.64
+Beacon Direct,INS005,2023-10,0,105,0.0
+Beacon Direct,INS005,2023-11,0,118,0.0
+Beacon Direct,INS005,2023-12,0,142,0.0
+Beacon Direct,INS005,2024-01,0,155,0.0
+Beacon Direct,INS005,2024-02,2,174,13.79
+Beacon Direct,INS005,2024-03,2,194,12.37
+Beacon Direct,INS005,2024-04,3,211,17.06
+Beacon Direct,INS005,2024-05,3,203,17.73
+Beacon Direct,INS005,2024-06,6,195,36.92
+Beacon Direct,INS005,2024-07,3,189,19.05
+Beacon Direct,INS005,2024-08,1,188,6.38
+Beacon Direct,INS005,2024-09,0,193,0.0
+Beacon Direct,INS005,2024-10,2,194,12.37
+Beacon Direct,INS005,2024-11,2,194,12.37
+Beacon Direct,INS005,2024-12,1,187,6.42
+Beacon Direct,INS005,2025-01,3,186,19.35
+Beacon Direct,INS005,2025-02,1,189,6.35
+Beacon Direct,INS005,2025-03,1,185,6.49
+Beacon Direct,INS005,2025-04,2,184,13.04
+Beacon Direct,INS005,2025-05,1,187,6.42
+Beacon Direct,INS005,2025-06,3,194,18.56
+Beacon Direct,INS005,2025-07,5,210,28.57
+Beacon Direct,INS005,2025-08,1,208,5.77
+Beacon Direct,INS005,2025-09,2,202,11.88
+Beacon Direct,INS005,2025-10,0,196,0.0
+Beacon Direct,INS005,2025-11,1,189,6.35
+Beacon Direct,INS005,2025-12,1,194,6.19
+Beacon Direct,INS005,2026-01,6,192,37.5
+Beacon Direct,INS005,2026-02,2,189,12.7
+Beacon Direct,INS005,2026-03,1,192,6.25
+Beacon Direct,INS005,2026-04,1,199,6.03
+Beacon Direct,INS005,2026-05,3,202,17.82
+Beacon Direct,INS005,2026-06,1,197,6.09
+Beacon Direct,INS005,2026-07,0,189,0.0
+Beacon Direct,INS005,2026-08,3,197,18.27
+Beacon Direct,INS005,2026-09,5,194,30.93
+Rivermark Insurance,INS006,2023-04,0,4,0.0
+Rivermark Insurance,INS006,2023-05,0,17,0.0
+Rivermark Insurance,INS006,2023-06,0,29,0.0
+Rivermark Insurance,INS006,2023-07,0,41,0.0
+Rivermark Insurance,INS006,2023-08,0,52,0.0
+Rivermark Insurance,INS006,2023-09,0,63,0.0
+Rivermark Insurance,INS006,2023-10,0,74,0.0
+Rivermark Insurance,INS006,2023-11,1,88,13.64
+Rivermark Insurance,INS006,2023-12,0,106,0.0
+Rivermark Insurance,INS006,2024-01,0,117,0.0
+Rivermark Insurance,INS006,2024-02,0,136,0.0
+Rivermark Insurance,INS006,2024-03,1,148,8.11
+Rivermark Insurance,INS006,2024-04,3,158,22.78
+Rivermark Insurance,INS006,2024-05,0,160,0.0
+Rivermark Insurance,INS006,2024-06,1,167,7.19
+Rivermark Insurance,INS006,2024-07,1,166,7.23
+Rivermark Insurance,INS006,2024-08,1,175,6.86
+Rivermark Insurance,INS006,2024-09,3,175,20.57
+Rivermark Insurance,INS006,2024-10,2,177,13.56
+Rivermark Insurance,INS006,2024-11,0,185,0.0
+Rivermark Insurance,INS006,2024-12,2,186,12.9
+Rivermark Insurance,INS006,2025-01,0,192,0.0
+Rivermark Insurance,INS006,2025-02,2,191,12.57
+Rivermark Insurance,INS006,2025-03,4,188,25.53
+Rivermark Insurance,INS006,2025-04,3,189,19.05
+Rivermark Insurance,INS006,2025-05,4,182,26.37
+Rivermark Insurance,INS006,2025-06,1,184,6.52
+Rivermark Insurance,INS006,2025-07,0,182,0.0
+Rivermark Insurance,INS006,2025-08,4,181,26.52
+Rivermark Insurance,INS006,2025-09,0,179,0.0
+Rivermark Insurance,INS006,2025-10,0,182,0.0
+Rivermark Insurance,INS006,2025-11,7,180,46.67
+Rivermark Insurance,INS006,2025-12,6,172,41.86
+Rivermark Insurance,INS006,2026-01,3,171,21.05
+Rivermark Insurance,INS006,2026-02,2,171,14.04
+Rivermark Insurance,INS006,2026-03,1,171,7.02
+Rivermark Insurance,INS006,2026-04,1,174,6.9
+Rivermark Insurance,INS006,2026-05,3,176,20.45
+Rivermark Insurance,INS006,2026-06,1,173,6.94
+Rivermark Insurance,INS006,2026-07,2,168,14.29
+Rivermark Insurance,INS006,2026-08,3,161,22.36
+Rivermark Insurance,INS006,2026-09,7,161,52.17
+Cedar Protect,INS007,2023-04,0,4,0.0
+Cedar Protect,INS007,2023-05,0,14,0.0
+Cedar Protect,INS007,2023-06,0,27,0.0
+Cedar Protect,INS007,2023-07,0,36,0.0
+Cedar Protect,INS007,2023-08,0,51,0.0
+Cedar Protect,INS007,2023-09,0,61,0.0
+Cedar Protect,INS007,2023-10,1,76,15.79
+Cedar Protect,INS007,2023-11,0,82,0.0
+Cedar Protect,INS007,2023-12,3,97,37.11
+Cedar Protect,INS007,2024-01,2,106,22.64
+Cedar Protect,INS007,2024-02,0,114,0.0
+Cedar Protect,INS007,2024-03,0,128,0.0
+Cedar Protect,INS007,2024-04,5,138,43.48
+Cedar Protect,INS007,2024-05,5,143,41.96
+Cedar Protect,INS007,2024-06,0,149,0.0
+Cedar Protect,INS007,2024-07,1,158,7.59
+Cedar Protect,INS007,2024-08,2,161,14.91
+Cedar Protect,INS007,2024-09,2,164,14.63
+Cedar Protect,INS007,2024-10,2,162,14.81
+Cedar Protect,INS007,2024-11,1,164,7.32
+Cedar Protect,INS007,2024-12,1,165,7.27
+Cedar Protect,INS007,2025-01,0,171,0.0
+Cedar Protect,INS007,2025-02,0,177,0.0
+Cedar Protect,INS007,2025-03,2,178,13.48
+Cedar Protect,INS007,2025-04,2,179,13.41
+Cedar Protect,INS007,2025-05,0,178,0.0
+Cedar Protect,INS007,2025-06,1,179,6.7
+Cedar Protect,INS007,2025-07,0,175,0.0
+Cedar Protect,INS007,2025-08,2,169,14.2
+Cedar Protect,INS007,2025-09,2,171,14.04
+Cedar Protect,INS007,2025-10,0,172,0.0
+Cedar Protect,INS007,2025-11,1,161,7.45
+Cedar Protect,INS007,2025-12,0,153,0.0
+Cedar Protect,INS007,2026-01,0,151,0.0
+Cedar Protect,INS007,2026-02,4,151,31.79
+Cedar Protect,INS007,2026-03,0,144,0.0
+Cedar Protect,INS007,2026-04,2,143,16.78
+Cedar Protect,INS007,2026-05,1,143,8.39
+Cedar Protect,INS007,2026-06,2,143,16.78
+Cedar Protect,INS007,2026-07,4,134,35.82
+Cedar Protect,INS007,2026-08,4,125,38.4
+Cedar Protect,INS007,2026-09,5,134,44.78
+Bluegate Cover,INS008,2023-04,0,0,
+Bluegate Cover,INS008,2023-05,0,8,0.0
+Bluegate Cover,INS008,2023-06,0,20,0.0
+Bluegate Cover,INS008,2023-07,1,30,40.0
+Bluegate Cover,INS008,2023-08,1,46,26.09
+Bluegate Cover,INS008,2023-09,0,54,0.0
+Bluegate Cover,INS008,2023-10,0,68,0.0
+Bluegate Cover,INS008,2023-11,1,79,15.19
+Bluegate Cover,INS008,2023-12,2,86,27.91
+Bluegate Cover,INS008,2024-01,1,95,12.63
+Bluegate Cover,INS008,2024-02,0,112,0.0
+Bluegate Cover,INS008,2024-03,1,125,9.6
+Bluegate Cover,INS008,2024-04,3,142,25.35
+Bluegate Cover,INS008,2024-05,0,148,0.0
+Bluegate Cover,INS008,2024-06,1,152,7.89
+Bluegate Cover,INS008,2024-07,1,159,7.55
+Bluegate Cover,INS008,2024-08,2,154,15.58
+Bluegate Cover,INS008,2024-09,3,158,22.78
+Bluegate Cover,INS008,2024-10,0,149,0.0
+Bluegate Cover,INS008,2024-11,2,145,16.55
+Bluegate Cover,INS008,2024-12,1,146,8.22
+Bluegate Cover,INS008,2025-01,1,153,7.84
+Bluegate Cover,INS008,2025-02,0,145,0.0
+Bluegate Cover,INS008,2025-03,1,146,8.22
+Bluegate Cover,INS008,2025-04,2,141,17.02
+Bluegate Cover,INS008,2025-05,1,134,8.96
+Bluegate Cover,INS008,2025-06,0,126,0.0
+Bluegate Cover,INS008,2025-07,0,121,0.0
+Bluegate Cover,INS008,2025-08,0,119,0.0
+Bluegate Cover,INS008,2025-09,1,118,10.17
+Bluegate Cover,INS008,2025-10,0,119,0.0
+Bluegate Cover,INS008,2025-11,3,129,27.91
+Bluegate Cover,INS008,2025-12,3,128,28.12
+Bluegate Cover,INS008,2026-01,2,124,19.35
+Bluegate Cover,INS008,2026-02,1,125,9.6
+Bluegate Cover,INS008,2026-03,2,128,18.75
+Bluegate Cover,INS008,2026-04,2,125,19.2
+Bluegate Cover,INS008,2026-05,1,128,9.38
+Bluegate Cover,INS008,2026-06,1,123,9.76
+Bluegate Cover,INS008,2026-07,3,125,28.8
+Bluegate Cover,INS008,2026-08,4,126,38.1
+Bluegate Cover,INS008,2026-09,6,123,58.54
+</script>
+<script type="text/csv" id="csv-risk_band">
+band,policies,policy_share_pct,premium_share_pct,incurred_share_pct,frequency_pct,severity,cost_per_policy,avg_premium
+Low,701,11.5,4.4,1.3,5.7,5585.6,318.7,130.1
+Medium,1711,28.1,17.6,9.1,8.5,10796.9,915.0,213.4
+High,2339,38.4,42.0,38.8,13.3,21518.2,2851.9,372.1
+Very High,1270,20.8,34.9,50.4,18.6,36663.1,6813.0,569.1
+</script>
+<script type="text/csv" id="csv-data_quality">
+area,issue,count,share_pct,gbp,severity,handling
+Policies,Insurer code in lower case (e.g. 'ins002'),38,0.61,12822,Low,Standardised to upper case
+Policies,"Exact duplicate policy rows (same PolicyRef, all fields identical)",42,0.67,14815,Low,Second copy removed from analysis views (flag kept)
+Policies,Missing FloodRiskBand,78,1.25,23722,Low,"Kept, shown as 'Unknown' band"
+Policies,Zero or negative written premium,34,0.54,3413,Low,Kept in counts and exposure; excluded from average premium and rate analysis
+Policies,Cancelled from inception (no cover ever provided),101,1.62,33692,Info,Excluded from in-force portfolio and exposure; premium treated as not earned
+Claims,Orphan claim: PolicyRef not in policy file,12,1.55,191963,High,Excluded from segment analysis (no attributes); counted in leakage
+Claims,Claim on a policy cancelled from inception,9,1.16,180868,High,Excluded from claims experience; reported separately as potential leakage
+Claims,Claim notified after the policy was cancelled,27,3.48,545932,High,Excluded from claims experience; reported separately as potential leakage
+Claims,Claim notified after policy expiry,1,0.13,7476,High,Excluded from claims experience; reported separately as potential leakage
+Claims,Missing NotificationDate,18,2.32,424158,Low,Kept in totals and segment views; excluded from time trends only
+Claims,Closed claim still carrying an outstanding reserve,505,65.16,598004,Medium,Incurred used as supplied; reserve on closed claims reported as a possible overstatement
+Claims,Incurred does not equal Paid + Outstanding (tolerance £1),112,14.45,119620,Medium,Incurred used as the ultimate view per dictionary; mismatch flagged
+Claims,Paid exceeds Incurred,100,12.9,23835,Low,Flagged; immaterial in value
+Claims,Claim type is 'Escape of water' (not a flood peril),102,13.16,2363637,High,"Kept in totals, shown separately; raised as a scope question for leadership"
+</script>
+<script>dash._boot();</script>
+</body>
+</html>
